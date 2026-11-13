@@ -19,6 +19,28 @@ An autonomous **6-Agent AI Swarm Orchestrator & 2D Isometric Virtual Office** bu
 
 ---
 
+## 🔒 Safe-by-Default Configuration
+
+This project is now configured to run in a safer default mode:
+
+- Shell execution is disabled by default.
+- Python execution is disabled by default.
+- Voice input/output is disabled by default.
+- The startup default engine is `ollama:llama3.1` unless you explicitly enable DeepSeek in `.env`.
+
+To enable code execution or voice features on your own machine, update `.env` and set:
+
+```env
+SAFE_MODE="true"
+ALLOW_SHELL_EXECUTION="true"
+ALLOW_PYTHON_EXECUTION="true"
+VOICE_ENABLED="true"
+```
+
+Use only on a machine you trust and in a dedicated workspace.
+
+---
+
 ## 🤖 The 6 Specialized AI Agents
 
 | Agent ID | Callsign | Role | Primary Tools |
@@ -55,7 +77,7 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-Open `.env` and paste your `DEEPSEEK_API_KEY` (or set `DEFAULT_ENGINE="ollama:llama3.1"` for 100% local offline execution).
+Open `.env` and paste your `DEEPSEEK_API_KEY` only if you want to use DeepSeek. Otherwise leave the defaults and use local Ollama.
 
 ### 4. Launch Agent HQ
 ```bash
@@ -68,4 +90,5 @@ python main.py
 
 1. **Zero Hardcoded Secrets**: API keys are loaded strictly from environment variables (`.env` is gitignored).
 2. **Workspace Path Sandboxing**: All file read/write operations in `manage_files` and `build_pro_website` validate `Path.resolve()` prefixes to prevent directory traversal outside `./legion_workspace`.
-3. **Destructive Shell Filter**: `execute_shell` blocks dangerous system commands and can be disabled globally via `ALLOW_SHELL_EXECUTION=false`.
+3. **Destructive Shell Filter**: `execute_shell` blocks dangerous system commands and is disabled by default.
+4. **Safe-by-default execution**: Python and shell execution are off unless explicitly enabled in a trusted environment.

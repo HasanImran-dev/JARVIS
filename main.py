@@ -83,18 +83,22 @@ BLOCKED_SHELL_PATTERNS = (
 class LegionConfig:
     system_name: str = "JARVIS-ULTRON AGENT HQ"
     version: str = "17.0-GITHUB-PRO"
-    engine_mode: str = field(default_factory=lambda: os.getenv("DEFAULT_ENGINE", "deepseek-chat"))
+    engine_mode: str = field(default_factory=lambda: os.getenv("DEFAULT_ENGINE", "ollama:llama3.1"))
     deepseek_key: str = field(default_factory=lambda: os.getenv("DEEPSEEK_API_KEY", ""))
     deepseek_url: str = field(default_factory=lambda: os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"))
     ollama_url: str = field(default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"))
     db_path: str = "jarvis_legion.db"
     workspace_dir: str = "./legion_workspace"
     max_agent_steps: int = 6
+    safe_mode: bool = field(default_factory=lambda: os.getenv("SAFE_MODE", "true").lower() == "true")
     allow_shell_execution: bool = field(
-        default_factory=lambda: os.getenv("ALLOW_SHELL_EXECUTION", "true").lower() == "true"
+        default_factory=lambda: os.getenv("ALLOW_SHELL_EXECUTION", "false").lower() == "true"
+    )
+    allow_python_execution: bool = field(
+        default_factory=lambda: os.getenv("ALLOW_PYTHON_EXECUTION", "false").lower() == "true"
     )
     voice_enabled: bool = field(
-        default_factory=lambda: AUDIO_AVAILABLE and os.getenv("VOICE_ENABLED", "true").lower() == "true"
+        default_factory=lambda: AUDIO_AVAILABLE and os.getenv("VOICE_ENABLED", "false").lower() == "true"
     )
     auto_voice_loop: bool = False
     sample_rate: int = 16000
@@ -535,7 +539,7 @@ class SwarmOrchestrator:
 
         if not self.config.deepseek_key:
             raise ValueError(
-                "DEEPSEEK_API_KEY is not set. Copy .env.example to .env and add your DeepSeek API key, or switch AI Brain to ollama:llama3.1."
+                "DEEPSEEK_API_KEY is not set. Set it in .env or switch to ollama:llama3.1 in SAFE mode."
             )
         cache_key = f"deepseek:{self.config.deepseek_key[:8]}"
         if cache_key not in self._client_cache:
@@ -722,6 +726,8 @@ class SwarmOrchestrator:
         return json.dumps(info, indent=2)
 
     def tool_execute_python(self, code: str) -> str:
+        if not self.config.allow_python_execution:
+            return "Python execution is disabled in SAFE MODE. Set ALLOW_PYTHON_EXECUTION=true only in a trusted local environment."
         script_path = self._resolve_safe_path("python_scripts/_agent_exec.py")
         if script_path is None:
             return "Security Error: Invalid script path."
@@ -736,7 +742,7 @@ class SwarmOrchestrator:
 
     def tool_execute_shell(self, command: str) -> str:
         if not self.config.allow_shell_execution:
-            return "Shell execution is disabled by configuration."
+            return "Shell execution is disabled in SAFE MODE. Set ALLOW_SHELL_EXECUTION=true only in a trusted local environment."
         low_cmd = command.lower()
         if any(pat in low_cmd for pat in BLOCKED_SHELL_PATTERNS):
             return "Security Policy Error: Destructive shell command blocked."
@@ -859,9 +865,15 @@ class SwarmOrchestrator:
                 on_sim_event(agent_id, "ERROR", "API Key Missing", None)
             return f"[Configuration Alert]: {str(auth_err)}"
 
+        allowed_tools = list(profile.allowed_tools)
+        if not self.config.allow_python_execution:
+            allowed_tools = [t for t in allowed_tools if t != "execute_python"]
+        if not self.config.allow_shell_execution:
+            allowed_tools = [t for t in allowed_tools if t != "execute_shell"]
+
         agent_schemas = [
             self.tool_schemas[t]
-            for t in profile.allowed_tools
+            for t in allowed_tools
             if t in self.tool_schemas and (allow_delegation or t != "delegate_to_agent")
         ]
 
@@ -1225,12 +1237,13 @@ class JarvisSimOfficeApp(ctk.CTk):
         self.refresh_workspace_files()
         self.refresh_memory_matrix()
 
-        self.after(
-            600,
-            lambda: self.voice.speak(
-                "Agent H Q version 17 GitHub Pro online. Nexus is locked and ready to build full Tailwind websites in one shot."
-            ),
-        )
+        if self.config.voice_enabled:
+            self.after(
+                600,
+                lambda: self.voice.speak(
+                    "Agent H Q version 17 GitHub Pro online. Nexus is locked and ready to build full Tailwind websites in one shot."
+                ),
+            )
 
     def _on_close(self):
         self.running = False
@@ -1251,7 +1264,7 @@ class JarvisSimOfficeApp(ctk.CTk):
 
         self.status_badge = ctk.CTkLabel(
             self.sidebar,
-            text="● TURBO CODER READY",
+            text="● SAFE MODE ACTIVE",
             font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
             text_color=ACCENT_GREEN,
             fg_color=CARD_BG,
@@ -1267,7 +1280,7 @@ class JarvisSimOfficeApp(ctk.CTk):
 
         self.engine_menu = ctk.CTkOptionMenu(
             self.sidebar,
-            values=["deepseek-chat", "ollama:gemma2", "ollama:llama3.1"],
+            values=["ollama:llama3.1", "deepseek-chat"],
             fg_color=CARD_BG,
             button_color=ACCENT_RED,
             height=28,
@@ -1444,7 +1457,7 @@ class JarvisSimOfficeApp(ctk.CTk):
         self.chat_box.insert(
             "end",
             "⚡ AGENT HQ v17.0 GITHUB PRO READY.\n"
-            "• API Keys isolated in .env | Path Traversal Sandbox Active | SQLite WAL Enabled.\n"
+            "• SAFE MODE ACTIVE: shell & python execution are disabled by default.\n"
             "------------------------------------------------\n\n",
         )
         self.chat_box.configure(state="disabled")
@@ -1652,7 +1665,8 @@ class JarvisSimOfficeApp(ctk.CTk):
             self.after(0, self.refresh_kanban_board)
             self.after(0, self.refresh_workspace_files)
             self.after(0, self.refresh_memory_matrix)
-            self.voice.speak(reply, on_finished=self._after_agent_speaks)
+            if self.config.voice_enabled:
+                self.voice.speak(reply, on_finished=self._after_agent_speaks)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -1679,7 +1693,8 @@ class JarvisSimOfficeApp(ctk.CTk):
             self.after(0, self.refresh_kanban_board)
             self.after(0, self.refresh_workspace_files)
             self.after(0, self.refresh_memory_matrix)
-            self.voice.speak(reply, on_finished=self._after_agent_speaks)
+            if self.config.voice_enabled:
+                self.voice.speak(reply, on_finished=self._after_agent_speaks)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -1747,5 +1762,3 @@ class JarvisSimOfficeApp(ctk.CTk):
 if __name__ == "__main__":
     app = JarvisSimOfficeApp()
     app.mainloop()
-
-

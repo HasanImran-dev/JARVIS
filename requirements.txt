@@ -1,0 +1,16 @@
+# Core AI & Networking
+openai>=1.50.0
+requests>=2.32.0
+beautifulsoup4>=4.12.3
+python-dotenv>=1.0.1
+
+# Desktop UI & System Telemetry
+customtkinter>=5.2.2
+psutil>=6.0.0
+
+# Voice & Audio Engine
+pyttsx3>=2.90
+SpeechRecognition>=3.10.4
+sounddevice>=0.5.0
+numpy>=1.26.4
+scipy>=1.13.0

@@ -58,8 +58,8 @@ Use only on a machine you trust and in a dedicated workspace.
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/jarvis-ultron-agent-hq.git
-cd jarvis-ultron-agent-hq
+git clone https://github.com/HasanImran-dev/JARVIS.git
+cd JARVIS
 ```
 
 ### 2. Create a Virtual Environment & Install Dependencies

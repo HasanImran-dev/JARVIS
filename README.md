@@ -86,9 +86,3 @@ python main.py
 
 ---
 
-## 🛡️ Security Architecture (v17.0 Hardened)
-
-1. **Zero Hardcoded Secrets**: API keys are loaded strictly from environment variables (`.env` is gitignored).
-2. **Workspace Path Sandboxing**: All file read/write operations in `manage_files` and `build_pro_website` validate `Path.resolve()` prefixes to prevent directory traversal outside `./legion_workspace`.
-3. **Destructive Shell Filter**: `execute_shell` blocks dangerous system commands and is disabled by default.
-4. **Safe-by-default execution**: Python and shell execution are off unless explicitly enabled in a trusted environment.
